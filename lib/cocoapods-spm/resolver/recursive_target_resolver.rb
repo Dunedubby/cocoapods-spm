@@ -26,7 +26,7 @@ module Pod
 
         def resolve_recursive_targets
           @result.spm_dependencies_by_target.values.flatten.uniq(&:product).each do |dep|
-            next if dep.pkg.use_default_xcode_linking?
+            next if dep.pkg&.use_default_xcode_linking?
 
             project_pkgs.resolve_recursive_targets_of(dep.pkg.name, dep.product)
           end
