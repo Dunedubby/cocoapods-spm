@@ -2,53 +2,97 @@ require "cocoapods-spm/swift/package/description"
 
 module Pod
   module Swift
-    class ProjectPackages
-      def initialize(options = {})
-        @src_dir = options[:src_dir]
-        raise Informative, "src_dir must not be nil" if @src_dir.nil?
+    class PackageDescription
+      autoload :Resources, "cocoapods-spm/swift/package/resources"
 
-        @json_dir = options[:write_json_to_dir]
-        @pkg_desc_cache = {}
-        load
-      end
-
-      def resolve_recursive_targets_of(pkg_name, product_name)
-        @recursive_targets_cache ||= {}
-        return @recursive_targets_cache[product_name] if @recursive_targets_cache.key(product_name)
-
-        res = []
-        to_visit = pkg_desc_of(pkg_name).targets_of_product(product_name)
-        until to_visit.empty?
-          target = to_visit.pop
-          res << target
-          to_visit += target.resolve_dependencies(@pkg_desc_cache)
+      class Target < PackageDescriptionBaseObject
+        def type
+          raw["type"]
         end
-        @recursive_targets_cache[product_name] = res.uniq(&:name)
-      end
 
-      def pkg_desc_of(name)
-        return @pkg_desc_cache[name] if @pkg_desc_cache.key?(name)
+        def macro?
+          type == "macro"
+        end
 
-        raise Informative, "Package description of `#{name}` does not exist!"
-      end
+        def binary?
+          return @binary unless @binary.nil?
 
-      private
+          @binary = type == "binary"
+        end
 
-      def load
-        @src_dir.glob("*").each do |dir|
-          next if dir.glob("Package*.swift").empty?
+        def dynamic?
+          @dynamic
+        end
 
-          raw = Dir.chdir(dir) { `swift package dump-package` }
-          pkg_desc = PackageDescription.from_s(raw)
-          write_data = lambda do |name|
-            @pkg_desc_cache[name] = pkg_desc
-            (@json_dir / "#{name}.json").write(raw) unless @json_dir.nil?
+        def framework_name
+          @product_name || name
+        end
+
+        def public_headers_path
+          raw["publicHeadersPath"]
+        end
+
+        def clang_modulemap_arg
+          return nil if public_headers_path.nil?
+
+          "-fmodule-map-file=\"${GENERATED_MODULEMAP_DIR}/#{name}.modulemap\""
+        end
+
+        def resources
+          raw.fetch("resources", []).flat_map { |h| Resources.new(h, parent: self) }
+        end
+
+        def linker_flags
+          return ["-framework \"#{framework_name}\""] if dynamic?
+          return ["-l\"#{name}.o\""] unless binary?
+
+          case binary_basename
+          when /(\S+)\.framework/ then ["-framework \"#{$1}\""]
+          when /lib(\S+)\.(a|dylib)/ then ["-library \"#{$1}\""]
+          when /(\S+\.(a|dylib))/ then ["\"${PODS_CONFIGURATION_BUILD_DIR}/#{$1}\""]
+          else []
           end
+        end
 
-          pkg_name = pkg_desc.name
-          pkg_slug = dir.basename.to_s
-          write_data.call(pkg_name)
-          write_data.call(pkg_slug) unless pkg_name == pkg_slug
+        def resolve_dependencies(pkg_desc_cache)
+          raw.fetch("dependencies", []).flat_map do |hash|
+            type = ["byName", "target", "product"].find { |k| hash.key?(k) }
+            if type.nil?
+              raise Informative, "Unexpected dependency type. Must be either `byName`, `target`, or `product`."
+            end
+
+            name = hash[type][0]
+            pkg_name = hash.key?("product") ? hash["product"][1] : self.pkg_name
+            pkg_desc = pkg_desc_cache[pkg_name]
+            find_by_target = -> { pkg_desc.targets.select { |t| t.name == name } }
+            find_by_product = -> { pkg_desc.targets_of_product(name) }
+            next find_by_target.call if hash.key?("target")
+            next find_by_product.call if hash.key?("product")
+
+            # byName, could be either a target or a product
+            next find_by_target.call || find_by_product.call
+          end
+        end
+
+        def built_framework_path
+          "${BUILT_PRODUCTS_DIR}/PackageFrameworks/#{framework_name}.framework"
+        end
+
+        def xcframework
+          @xcframework ||= begin
+            path = (root.artifacts_dir / name).glob("*.xcframework")[0]
+            Xcode::XCFramework.new(name, path.realpath) unless path.nil?
+          end
+        end
+
+        def binary_basename
+          return nil unless binary?
+
+          @binary_basename ||= xcframework.slices[0].path.basename.to_s
+        end
+
+        def use_default_xcode_linking?
+          root.use_default_xcode_linking?
         end
       end
     end
