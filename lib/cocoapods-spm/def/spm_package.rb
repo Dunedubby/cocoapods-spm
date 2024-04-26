@@ -8,6 +8,9 @@ module Pod
 
       def initialize(name, options = {})
         @name = name
+        UI.section "Package: " + name do end
+        UI.section options[:git] do end
+        UI.section options[:tag] do end
         @_options = options
         @relative_path = nil
         @linkage = nil
@@ -20,6 +23,7 @@ module Pod
       def parse_options(options)
         @url = options[:url] || options[:git]
         @relative_path = relative_path_from(options)
+        UI.section "Options: " + options[:git] + " " + options[:tag] do end
         @requirement = requirement_from(options)
         @linking_opts = options[:linking] || {}
       end

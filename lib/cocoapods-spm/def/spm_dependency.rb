@@ -1,7 +1,7 @@
 module Pod
   module SPM
     class Dependency
-      attr_reader :name, :product
+      attr_reader :name, :product, :options
       attr_accessor :pkg
 
       def initialize(name, options = {}, product: nil, pkg: nil)
