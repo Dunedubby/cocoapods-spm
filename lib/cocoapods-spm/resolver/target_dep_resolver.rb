@@ -13,22 +13,22 @@ module Pod
           resolve_spm_dependencies_by_target
         end
 
+        def all_spm_pkgs
+          @result.spm_pkgs
+        end
+
         private
 
         def resolve_spm_pkgs
           resolve_dependencies_for_targets
           resolve_dependencies_for_aggregate_targets
           @result.spm_pkgs = @result.spm_dependencies_by_target.values.flatten.uniq.map { |d|
-            a = SPM::Package.new(d.name, d.options)
-            UI.section a.class.to_s do end
-            a
-          }# @podfile.target_definition_list.flat_map(&:spm_pkgs).uniq
-          UI.section @result.spm_pkgs[0].class.to_s + " coolio"
+            SPM::Package.new(d.name, d.options)
+          }.concat(@podfile.target_definition_list.flat_map(&:spm_pkgs).uniq)
         end
 
         def resolve_spm_dependencies_by_target
           @result.spm_dependencies_by_target.values.flatten.each { |d|
-            UI.section spm_pkg_for(d.name).class.to_s do end 
             d.pkg = spm_pkg_for(d.name)
           }
         end

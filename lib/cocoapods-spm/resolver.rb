@@ -13,15 +13,14 @@ module Pod
         @podfile = podfile
         @aggregate_targets = aggregate_targets
         @umbrella_pkg = nil
-        @resolvers = [
-          TargetDependencyResolver.new(podfile, aggregate_targets, @_result),
-          RecursiveTargetResolver.new(podfile, @_result),
-        ]
+        @target_resolver = TargetDependencyResolver.new(podfile, aggregate_targets, @_result)
+        @recursive_resolver = RecursiveTargetResolver.new(podfile, @_result)
       end
 
       def resolve
+        @target_resolver.resolve
         generate_umbrella_pkg
-        @resolvers.each(&:resolve)
+        @recursive_resolver.resolve
         validate!
       end
 
@@ -32,7 +31,10 @@ module Pod
       private
 
       def generate_umbrella_pkg
-        @umbrella_pkg = Pod::SPM::UmbrellaPackage.new(@podfile).prepare
+        @umbrella_pkg = Pod::SPM::UmbrellaPackage.new(
+          @podfile,
+          @target_resolver.all_spm_pkgs,
+        ).prepare
       end
 
       def validate!

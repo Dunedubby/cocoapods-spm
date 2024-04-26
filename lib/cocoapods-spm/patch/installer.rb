@@ -54,11 +54,11 @@ module Pod
     end
 
     def resolve_spm_dependencies
-      #UI.section "Resolving SPM dependencies" do
-      @spm_resolver ||= SPM::Resolver.new(podfile, aggregate_targets)
-      @spm_resolver.resolve
-      podfile.spm_resolver = @spm_resolver
-      #end
+      UI.section "Resolving SPM dependencies" do
+        @spm_resolver ||= SPM::Resolver.new(podfile, aggregate_targets)
+        @spm_resolver.resolve
+        podfile.spm_resolver = @spm_resolver
+      end
     end
   end
 end

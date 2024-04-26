@@ -3,9 +3,9 @@ module Pod
     class UmbrellaPackage
       include Config::Mixin
 
-      def initialize(podfile)
+      def initialize(podfile, spm_pkgs = nil)
         @podfile = podfile
-        @spm_pkgs = @podfile.target_definition_list.flat_map(&:spm_pkgs).uniq
+        @spm_pkgs = spm_pkgs || @podfile.target_definition_list.flat_map(&:spm_pkgs).uniq
       end
 
       def prepare
