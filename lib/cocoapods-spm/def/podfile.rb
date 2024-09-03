@@ -18,7 +18,7 @@ module Pod
       macro = requirements[0].delete(:macro) if requirements.first.is_a?(Hash)
       macro ||= {}
       unless macro.empty?
-        requirements[0][:path] = prepare_macro_pod_dir(name, macro)
+        requirements[0][:path] = prepare_macro_pod_dir(name, macro).to_s
         macro_pods[name] = macro
       end
       origin_pod(name, *requirements)
@@ -67,8 +67,7 @@ module Pod
         end
       HEREDOC
 
-      path = Pathname(".spm.pods/#{name}")
-      (path / ".prebuilt").mkpath
+      path = Pod::SPM::Config.instance.macro_root_dir / name
       (path / "Sources").mkpath
       (path / "#{name}.podspec").write(podspec_content)
       path

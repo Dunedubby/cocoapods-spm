@@ -6,6 +6,7 @@ puts "Using linkage: #{linkage}"
 @checksum = "dummy-checksum-to-prevent-merge-conflicts"
 
 plugin "cocoapods-spm"
+plugin "cocoapods-xcconfig-hooks"
 
 config_compact_spec(
   extra: ->(s) { s.ios.deployment_target = "16.0" }
@@ -20,6 +21,7 @@ target "EX" do
   pod "Logger", :path => "LocalPods/Logger"
   pod "CommonUI", :path => "LocalPods/CommonUI"
   pod "Services", :path => "LocalPods/Services"
+
   pod "Orcam", :macro => {
     :git => "https://github.com/trinhngocthuyen/orcam.git",
     :branch => "main"

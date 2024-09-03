@@ -4,14 +4,24 @@ module Pod
   module Swift
     class PackageDescription < PackageDescriptionBaseObject
       include SPM::Config::Mixin
+      autoload :Dependency, "cocoapods-spm/swift/package/dependency"
       autoload :Target, "cocoapods-spm/swift/package/target"
       autoload :Product, "cocoapods-spm/swift/package/product"
+
+      def self.from_dir(dir)
+        raw = `swift package dump-package --package-path #{dir.shellescape}`
+        from_s(raw)
+      end
 
       def src_dir
         @src_dir ||= begin
           path = raw.fetch("packageKind", {}).fetch("root", [])[0]
           Pathname.new(path) unless path.nil?
         end
+      end
+
+      def checkouts_dir
+        src_dir.parent
       end
 
       def artifacts_dir
@@ -22,12 +32,16 @@ module Pod
         src_dir.nil? ? name : src_dir.basename.to_s
       end
 
+      def dependencies
+        @dependencies ||= convert_field("dependencies", Dependency)
+      end
+
       def targets
-        @targets ||= raw.fetch("targets", []).flat_map { |h| Target.new(h, parent: self) }
+        @targets ||= convert_field("targets", Target)
       end
 
       def products
-        @products ||= raw.fetch("products", []).flat_map { |h| Product.new(h, parent: nil) }
+        @products ||= convert_field("products", Product)
       end
 
       def targets_of_product(name)
@@ -50,6 +64,12 @@ module Pod
 
         pkg = pod_config.podfile.spm_pkgs.find { |t| t.name == name }
         @use_default_xcode_linking = pkg&.use_default_xcode_linking?
+      end
+
+      private
+
+      def convert_field(name, type)
+        raw.fetch(name, []).flat_map { |h| type.new(h, parent: self) }
       end
     end
   end
